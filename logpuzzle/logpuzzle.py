@@ -9,7 +9,7 @@
 import os
 import re
 import sys
-import urllib
+import urllib.request
 
 """Logpuzzle exercise
 Given an apache logfile, find the puzzle urls and download the images.
@@ -18,6 +18,13 @@ Here's what a puzzle url looks like:
 10.254.254.28 - - [06/Aug/2007:00:13:48 -0700] "GET /~foo/puzzle-bar-aaab.jpg HTTP/1.0" 302 528 "-" "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6"
 """
 
+def url_sort_key(url):
+  """Used to order the urls in increasing order by 2nd word if present."""
+  match = re.search(r'-(\w+)-(\w+)\.\w+', url)
+  if match:
+    return match.group(2)
+  else:
+    return url
 
 def read_urls(filename):
   """Returns a list of the puzzle urls from the given log file,
@@ -25,6 +32,18 @@ def read_urls(filename):
   Screens out duplicate urls and returns the urls sorted into
   increasing order."""
   # +++your code here+++
+
+  underbar = filename.index('_')
+  host = filename[underbar + 1:]
+
+  log_file = open(filename,"r")
+  starting_list = re.findall(r"GET (\S+) HTTP",log_file.read())
+  log_file.close()
+
+  puzzle_list = [url for url in starting_list if "puzzle" in url]
+  sorted_list = sorted(puzzle_list, key=url_sort_key)
+
+  return ['http://' + host + url for url in sorted_list]
   
 
 def download_images(img_urls, dest_dir):
@@ -36,13 +55,28 @@ def download_images(img_urls, dest_dir):
   Creates the directory if necessary.
   """
   # +++your code here+++
+
+  html_file = open(os.path.join(dest_dir, 'index.html'), 'w')
+  html_file.write('<html><body>\n')
+
+  if not os.path.exists(dest_dir):
+    os.makedirs(dest_dir)
   
+  i = 0
+  for url in img_urls:
+    urllib.request.urlretrieve(url, f"{dest_dir}/img{i}")
+    print(f"Downloaded img{i}")
+    html_file.write(f"<img src=\"img{i}\">")
+    i += 1
+
+  html_file.write('\n</body></html>\n')
+  html_file.close()
 
 def main():
   args = sys.argv[1:]
 
   if not args:
-    print 'usage: [--todir dir] logfile '
+    print ('usage: [--todir dir] logfile ')
     sys.exit(1)
 
   todir = ''
@@ -55,7 +89,7 @@ def main():
   if todir:
     download_images(img_urls, todir)
   else:
-    print '\n'.join(img_urls)
+    print ('\n'.join(img_urls))
 
 if __name__ == '__main__':
   main()
